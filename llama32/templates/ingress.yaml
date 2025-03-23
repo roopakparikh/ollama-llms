@@ -1,0 +1,43 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "ollama-stack.fullname" . }}
+  labels:
+    {{- include "ollama-stack.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClass: {{ .Values.ingress.ingressClass }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - "{{ .Values.domain }}"
+      secretName: wildcard-tls
+  {{- end }}
+  rules:
+    # UI Ingress Rule
+    - host: "{{ .Values.domain }}"
+      http:
+        paths:
+          - path: /{{ .Release.Namespace }}-ui/(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ include "ollama-stack.fullname" . }}-ui
+                port:
+                  number: {{ .Values.tinyOllamaUI.service.port }}
+    # API Ingress Rule
+    - host: "{{ .Values.domain }}"
+      http:
+        paths:
+          - path: /{{ .Release.Namespace }}-api/(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ include "ollama-stack.fullname" . }}-ollama
+                port:
+                  number: {{ .Values.ollama.service.port }}
+{{- end }}

@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ollama-stack.fullname" . }}-ui
+  labels:
+    {{- include "ollama-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: tiny-ollama-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ollama-stack.tinyOllamaUI.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ollama-stack.tinyOllamaUI.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: tiny-ollama-ui
+          image: "{{ .Values.tinyOllamaUI.image.repository }}:{{ .Values.tinyOllamaUI.image.tag }}"
+          imagePullPolicy: {{ .Values.tinyOllamaUI.image.pullPolicy }}
+          env:
+            # Environment variables for the UI
+            # Ollama API URL
+            - name: OLLAMA_URL
+              value: http://{{ include "ollama-stack.fullname" . }}-ollama:11434
+            - name: OLLAMA_API_BASE_URL
+              value: http://{{ include "ollama-stack.fullname" . }}-ollama:11434
+            - name: PUBLIC_API_BASE_URL
+              value: http://{{ include "ollama-stack.fullname" . }}-ollama:11434
+            {{- range .Values.tinyOllamaUI.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.tinyOllamaUI.resources | nindent 12 }}
