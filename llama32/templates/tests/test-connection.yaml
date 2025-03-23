@@ -11,5 +11,5 @@ spec:
     - name: wget
       image: busybox
       command: ['wget']
-      args: ['{{ include "ollama-stack.fullname" . }}:11434']
+      args: ['{{ include "ollama-stack.fullname" . }}-ollama:11434']
   restartPolicy: Never
