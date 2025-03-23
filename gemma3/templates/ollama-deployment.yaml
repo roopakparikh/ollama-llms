@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ollama-stack.fullname" . }}-ollama
+  labels:
+    {{- include "ollama-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ollama
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ollama-stack.ollama.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ollama-stack.ollama.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: ollama
+          image: "{{ .Values.ollama.image.repository }}:{{ .Values.ollama.image.tag }}"
+          imagePullPolicy: {{ .Values.ollama.image.pullPolicy }}
+          env:
+            - name: OLLAMA_MODEL
+              value: "{{ .Values.ollama.model }}"
+          ports:
+            - name: http
+              containerPort: 11434
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.ollama.resources | nindent 12 }}
+          {{- if or .Values.ollama.models.pull .Values.ollama.models.run .Values.ollama.models.create }}
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    while ! /bin/ollama ps > /dev/null 2>&1; do
+                      sleep 5
+                    done
+
+                    {{- if .Values.ollama.models.pull }}
+                    {{- range .Values.ollama.models.pull }}
+                    /bin/ollama pull {{ternary "--insecure" "" $.Values.ollama.insecure | toString }} {{ . }}
+                    {{- end }}
+                    {{- end }}
+
+                    {{- if .Values.ollama.models.create }}
+                    {{- range .Values.ollama.models.create }}
+                    {{- if .template }}
+                    cat <<EOF > {{ include "ollama.modelsMountPath" $ }}/{{ .name }}
+                    {{- .template | nindent 20 }}
+                    EOF
+                    /bin/ollama create {{ .name }} -f {{ include "ollama.modelsMountPath" . }}/{{ .name }}
+                    {{- end }}
+                    {{- if .configMapRef }}
+                    /bin/ollama create {{ .name }} -f /models/{{ .name }}
+                    {{- end }}
+                    {{- end }}
+                    {{- end }}
+
+                    {{- if .Values.ollama.models.run }}
+                    {{- range .Values.ollama.models.run }}
+                    /bin/ollama run {{ . }}
+                    {{- end }}
+                    {{- end }}
+          {{- end }}
